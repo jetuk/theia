@@ -126,7 +126,7 @@ export class EditorManagerImpl implements EditorManager, WidgetFactory {
 
     protected revealIfVisible(editor: EditorWidget, input?: EditorInput): void {
         if (input === undefined || input.revealIfVisible === undefined || input.revealIfVisible) {
-            this.app.shell.activateMain(editor.id);
+            this.app.shell.activateWidget(editor.id);
         }
     }
 

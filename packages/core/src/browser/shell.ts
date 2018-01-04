@@ -58,20 +58,17 @@ const ACTIVE_CLASS = 'theia-mod-active';
 const DOCK_PANEL_TAB_BAR_CLASS = 'p-DockPanel-tabBar';
 
 export interface LayoutData {
-    mainArea?: DockLayoutData;
-    leftBar?: SideBarData;
-    rightBar?: SideBarData;
-    bottomBar?: SideBarData;
+    mainArea?: DockPanel.ILayoutConfig;
+    leftBar?: SideBarLayoutData;
+    rightBar?: SideBarLayoutData;
+    bottomBar?: SideBarLayoutData;
     statusBar?: StatusBarLayoutData;
 }
 
-export interface SideBarData {
-    activeWidgets?: Widget[];
+export interface SideBarLayoutData {
+    type: 'sidebar',
+    expandedWidgets?: Widget[];
     widgets?: Widget[];
-}
-
-export interface DockLayoutData extends DockPanel.ILayoutConfig {
-    activeWidgets?: Widget[]
 }
 
 export const MAINAREA_TABBAR_CONTEXT_MENU: MenuPath = ['mainarea-tabbar-context-menu'];
@@ -307,10 +304,7 @@ export class ApplicationShell extends Widget {
 
     getLayoutData(): LayoutData {
         return {
-            mainArea: {
-                activeWidgets: this.tracker.activeWidget ? [this.tracker.activeWidget] : [],
-                ...this.mainPanel.saveLayout()
-            },
+            mainArea: this.mainPanel.saveLayout(),
             leftBar: this.leftPanelHandler.getLayoutData(),
             rightBar: this.rightPanelHandler.getLayoutData(),
             bottomBar: this.bottomPanelHandler.getLayoutData(),
@@ -323,44 +317,50 @@ export class ApplicationShell extends Widget {
             if (layoutData.mainArea) {
                 this.mainPanel.restoreLayout(layoutData.mainArea);
                 this.registerWithFocusTracker(layoutData.mainArea.main);
-                if (layoutData.mainArea.activeWidgets) {
-                    for (const activeWidget of layoutData.mainArea.activeWidgets) {
-                        this.activateMain(activeWidget.id);
-                    }
-                }
             }
-            this.leftPanelHandler.setLayoutData(layoutData.leftBar);
-            this.rightPanelHandler.setLayoutData(layoutData.rightBar);
-            this.bottomPanelHandler.setLayoutData(layoutData.bottomBar);
+            if (layoutData.leftBar) {
+                this.leftPanelHandler.setLayoutData(layoutData.leftBar);
+                this.registerWithFocusTracker(layoutData.leftBar);
+            }
+            if (layoutData.rightBar) {
+                this.rightPanelHandler.setLayoutData(layoutData.rightBar);
+                this.registerWithFocusTracker(layoutData.rightBar);
+            }
+            if (layoutData.bottomBar) {
+                this.bottomPanelHandler.setLayoutData(layoutData.bottomBar);
+                this.registerWithFocusTracker(layoutData.bottomBar);
+            }
             this.statusBar.setLayoutData(layoutData.statusBar);
         }
     }
 
-    // tslint:disable-next-line:no-any
-    protected registerWithFocusTracker(data: any): void {
-        if (!data) {
-            return;
-        }
-        if (data.hasOwnProperty("widgets")) {
-            for (const widget of data["widgets"] as Widget[]) {
-                this.track(widget);
-            }
-        } else if (data.hasOwnProperty("children")) {
-            for (const child of data["children"] as object[]) {
-                this.registerWithFocusTracker(child);
+    protected registerWithFocusTracker(data: DockLayout.ITabAreaConfig | DockLayout.ISplitAreaConfig | SideBarLayoutData | null): void {
+        if (data) {
+            if (data.type === 'tab-area') {
+                for (const widget of data.widgets) {
+                    this.track(widget);
+                }
+            } else if (data.type === 'split-area') {
+                for (const child of data.children) {
+                    this.registerWithFocusTracker(child);
+                }
+            } else if (data.type === 'sidebar' && data.widgets) {
+                for (const widget of data.widgets) {
+                    this.track(widget);
+                }
             }
         }
     }
 
     /**
-     * The current widget in the shell's main area.
+     * The current widget in the application shell.
      */
     get currentWidget(): Widget | null {
         return this.tracker.currentWidget;
     }
 
     /**
-     * The active widget in the shell's main area.
+     * The active widget in the application shell.
      */
     get activeWidget(): Widget | null {
         return this.tracker.activeWidget;
@@ -402,20 +402,27 @@ export class ApplicationShell extends Widget {
     }
 
     /**
-     * Activate a widget in the left area.
+     * Activate a widget in the application shell.
+     *
+     * @returns the activated widget if it was found
      */
-    activateLeft(id: string): void {
-        this.leftPanelHandler.activate(id);
-    }
-
-    /**
-     * Activate a widget in the main area.
-     */
-    activateMain(id: string): void {
-        const dock = this.mainPanel;
-        const widget = find(dock.widgets(), value => value.id === id);
+    activateWidget(id: string): Widget | undefined {
+        let widget = find(this.mainPanel.widgets(), w => w.id === id);
         if (widget) {
-            dock.activateWidget(widget);
+            this.mainPanel.activateWidget(widget);
+            return widget;
+        }
+        widget = this.leftPanelHandler.activate(id);
+        if (widget) {
+            return widget;
+        }
+        widget = this.rightPanelHandler.activate(id);
+        if (widget) {
+            return widget;
+        }
+        widget = this.bottomPanelHandler.activate(id);
+        if (widget) {
+            return widget;
         }
     }
 
@@ -473,20 +480,6 @@ export class ApplicationShell extends Widget {
     }
 
     /**
-     * Activate a widget in the right area.
-     */
-    activateRight(id: string): void {
-        this.rightPanelHandler.activate(id);
-    }
-
-    /**
-     * Activate a widget in the bottom area.
-     */
-    activateBottom(id: string): void {
-        this.bottomPanelHandler.activate(id);
-    }
-
-    /**
      * Add a widget to the left content area.
      *
      * #### Notes
@@ -499,6 +492,7 @@ export class ApplicationShell extends Widget {
         }
         const rank = options.rank !== undefined ? options.rank : 100;
         this.leftPanelHandler.addWidget(widget, rank);
+        this.track(widget);
     }
 
     /**
@@ -531,6 +525,7 @@ export class ApplicationShell extends Widget {
         }
         const rank = options.rank !== undefined ? options.rank : 100;
         this.rightPanelHandler.addWidget(widget, rank);
+        this.track(widget);
     }
 
     /**
@@ -561,6 +556,7 @@ export class ApplicationShell extends Widget {
         }
         const rank = options.rank !== undefined ? options.rank : 100;
         this.bottomPanelHandler.addWidget(widget, rank);
+        this.track(widget);
     }
 
     /**
@@ -578,7 +574,7 @@ export class ApplicationShell extends Widget {
     }
 
     /**
-     * Collapse the right area.
+     * Collapse the bottom area.
      */
     collapseBottom(): void {
         this.bottomPanelHandler.collapse();
@@ -653,6 +649,15 @@ export class ApplicationShell extends Widget {
     }
 
     /**
+     * Close all widgets in the main area.
+     */
+    closeAll(): void {
+        each(toArray(this.mainPanel.widgets()), widget => {
+            widget.close();
+        });
+    }
+
+    /**
      * Test whether the current widget is dirty.
      */
     canSave(): boolean {
@@ -678,15 +683,6 @@ export class ApplicationShell extends Widget {
      */
     async saveAll(): Promise<void> {
         await Promise.all(this.tracker.widgets.map(Saveable.save));
-    }
-
-    /**
-     * Close all widgets in the main area.
-     */
-    closeAll(): void {
-        each(toArray(this.mainPanel.widgets()), widget => {
-            widget.close();
-        });
     }
 
     /**
@@ -757,35 +753,34 @@ export class ApplicationShell extends Widget {
     }
 
     /**
-     * Handle a change to the dock area current widget.
+     * Handle a change to the current widget.
      */
     private onCurrentChanged(sender: any, args: FocusTracker.IChangedArgs<Widget>): void {
         if (args.newValue) {
             args.newValue.title.className += ` ${CURRENT_CLASS}`;
         }
         if (args.oldValue) {
-            args.oldValue.title.className = (
-                args.oldValue.title.className.replace(CURRENT_CLASS, '')
-            );
+            args.oldValue.title.className = args.oldValue.title.className.replace(CURRENT_CLASS, '');
         }
         this.currentChanged.emit(args);
     }
 
     /**
-     * Handle a change to the dock area active widget.
+     * Handle a change to the active widget.
      */
     private onActiveChanged(sender: any, args: FocusTracker.IChangedArgs<Widget>): void {
         if (args.newValue) {
             args.newValue.title.className += ` ${ACTIVE_CLASS}`;
         }
         if (args.oldValue) {
-            args.oldValue.title.className = (
-                args.oldValue.title.className.replace(ACTIVE_CLASS, '')
-            );
+            args.oldValue.title.className = args.oldValue.title.className.replace(ACTIVE_CLASS, '');
         }
         this.activeChanged.emit(args);
     }
 
+    /**
+     * Track the given widget so it is considered in the `current` and `active` state of the shell.
+     */
     protected track(widget: Widget): void {
         this.tracker.add(widget);
         Saveable.apply(widget);
@@ -867,29 +862,28 @@ export class SideBarHandler {
         this.stackedPanel.widgetRemoved.connect(this.onWidgetRemoved, this);
     }
 
-    getLayoutData(): SideBarData {
-        const currentActive = this.findWidgetByTitle(this.sideBar.currentTitle) || undefined;
+    getLayoutData(): SideBarLayoutData {
+        const currentExpanded = this.findWidgetByTitle(this.sideBar.currentTitle) || undefined;
         return {
-            activeWidgets: currentActive ? [currentActive] : [],
-            widgets: this.stackedPanel.widgets as Widget[]
+            type: 'sidebar',
+            widgets: this.stackedPanel.widgets as Widget[],
+            expandedWidgets: currentExpanded ? [currentExpanded] : []
         };
     }
 
-    setLayoutData(layoutData: SideBarData | undefined) {
-        if (layoutData) {
-            this.collapse();
-            if (layoutData.widgets) {
-                let index = 0;
-                for (const widget of layoutData.widgets) {
-                    if (widget) {
-                        this.addWidget(widget, index++);
-                    }
+    setLayoutData(layoutData: SideBarLayoutData) {
+        this.collapse();
+        if (layoutData.widgets) {
+            let index = 0;
+            for (const widget of layoutData.widgets) {
+                if (widget) {
+                    this.addWidget(widget, index++);
                 }
             }
-            if (layoutData.activeWidgets) {
-                for (const widget of layoutData.activeWidgets) {
-                    this.activate(widget.id);
-                }
+        }
+        if (layoutData.expandedWidgets) {
+            for (const widget of layoutData.expandedWidgets) {
+                this.expand(widget.id);
             }
         }
     }
@@ -897,15 +891,28 @@ export class SideBarHandler {
     /**
      * Activate a widget residing in the side bar by ID.
      *
-     * @param id - The widget's unique ID.
+     * @returns the activated widget if it was found
      */
-    activate(id: string): void {
+    activate(id: string): Widget | undefined {
+        const widget = this.expand(id);
+        if (widget) {
+            widget.activate();
+        }
+        return widget;
+    }
+
+    /**
+     * Expand a widget residing in the side bar by ID.
+     *
+     * @returns the expanded widget if it was found
+     */
+    expand(id: string): Widget | undefined {
         const widget = this.findWidgetByID(id);
         if (widget) {
             this.sideBar.currentTitle = widget.title;
-            widget.activate();
             this.refreshVisibility();
         }
+        return widget;
     }
 
     /**
@@ -949,17 +956,17 @@ export class SideBarHandler {
     /**
      * Find the widget which owns the given title, or `null`.
      */
-    private findWidgetByTitle(title: Title<Widget> | null): Widget | null {
+    private findWidgetByTitle(title: Title<Widget> | null): Widget | undefined {
         const item = find(this.items, value => value.widget.title === title);
-        return item ? item.widget : null;
+        return item ? item.widget : undefined;
     }
 
     /**
      * Find the widget with the given id, or `null`.
      */
-    private findWidgetByID(id: string): Widget | null {
+    private findWidgetByID(id: string): Widget | undefined {
         const item = find(this.items, value => value.widget.id === id);
-        return item ? item.widget : null;
+        return item ? item.widget : undefined;
     }
 
     /**

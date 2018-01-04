@@ -41,8 +41,8 @@ export default new ContainerModule(bind => {
             const result = child.get(TerminalWidget);
             const app = ctx.container.get(FrontendApplication);
 
-            app.shell.addToMainArea(result);
-            app.shell.activateMain(result.id);
+            app.shell.addToBottomArea(result);
+            app.shell.activateWidget(result.id);
             return result;
         }
     }));

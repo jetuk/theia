@@ -75,7 +75,7 @@ export class ProblemContribution implements CommandContribution, MenuContributio
         if (!problemsWidget.isAttached) {
             this.app.shell.addToBottomArea(problemsWidget);
         }
-        this.app.shell.activateBottom(problemsWidget.id);
+        this.app.shell.activateWidget(problemsWidget.id);
     }
 
     registerMenus(menus: MenuModelRegistry): void {
