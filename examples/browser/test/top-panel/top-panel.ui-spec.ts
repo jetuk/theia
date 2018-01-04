@@ -1,8 +1,10 @@
 /* tslint:disable:no-unused-expression*/
 import { expect } from "chai";
 import { TopPanel } from "./top-panel";
+import { BottomPanel } from "../bottom-panel/bottom-panel";
 import { MainPage } from '../main-page/main-page';
 let topPanelComponent: TopPanel;
+let bottomPanel: BottomPanel;
 let mainPage: MainPage;
 
 before(() => {
@@ -11,6 +13,7 @@ before(() => {
 
     driver.url(url);
     topPanelComponent = new TopPanel(driver);
+    bottomPanel = new BottomPanel(driver);
     mainPage = new MainPage(driver);
     /* Make sure that the application shell is loaded */
     expect(mainPage.applicationShellExists()).to.be.true;
@@ -70,13 +73,14 @@ describe('theia top panel (menubar)', () => {
     });
 
     describe('problems view ui tests', () => {
-        it('should open a new terminal and then close it', () => {
+        it('should open a new problems view and then close it', () => {
             topPanelComponent.openProblemsView();
             topPanelComponent.waitForProblemsView();
-            expect(mainPage.isProblemsViewVisible()).to.be.true;
+            expect(bottomPanel.isProblemsViewVisible()).to.be.true;
 
-            mainPage.closeProblemsView();
-            expect(mainPage.isProblemsViewVisible()).to.be.false;
+            // TODO implement close command for the bottom panel
+            //bottomPanel.closeProblemsView();
+            //expect(bottomPanel.isProblemsViewVisible()).to.be.false;
         });
     });
 });

@@ -32,8 +32,6 @@ import { Saveable } from "./saveable";
 import { ContextMenuRenderer } from "./context-menu-renderer";
 import { StatusBarImpl, StatusBarLayoutData } from "./status-bar/status-bar";
 
-export const ApplicationShellOptions = Symbol("ApplicationShellOptions");
-
 /**
  * The class name added to AppShell instances.
  */
@@ -77,6 +75,8 @@ export interface DockLayoutData extends DockPanel.ILayoutConfig {
 }
 
 export const MAINAREA_TABBAR_CONTEXT_MENU: MenuPath = ['mainarea-tabbar-context-menu'];
+
+export const ApplicationShellOptions = Symbol("ApplicationShellOptions");
 
 export const DockPanelTabBarRendererFactory = Symbol('DockPanelTabBarRendererFactory');
 
@@ -170,7 +170,7 @@ export class ApplicationShell extends Widget {
     ) {
         super(options);
         this.addClass(APPLICATION_SHELL_CLASS);
-        this.id = 'main';
+        this.id = 'theia-app-shell';
 
         this.topPanel = this.createTopPanel();
         this.mainPanel = this.createMainPanel(dockPanelRenderer);
@@ -197,7 +197,7 @@ export class ApplicationShell extends Widget {
      */
     protected createMainPanel(dockPanelRenderer: DockPanelRenderer): DockPanel {
         const dockPanel = new DockPanel({ renderer: dockPanelRenderer });
-        dockPanel.id = 'theia-main-dock-panel';
+        dockPanel.id = 'theia-main-content-panel';
         dockPanel.spacing = 0;
         return dockPanel;
     }

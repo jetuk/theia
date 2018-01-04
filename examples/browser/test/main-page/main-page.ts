@@ -12,11 +12,11 @@ export class MainPage {
         this.leftPanel = new LeftPanel(driver);
     }
 
-    mainContentPanelExists(): boolean {
-        return this.driver.waitForExist('#theia-main-content-panel');
+    applicationShellExists(): boolean {
+        return this.driver.waitForExist('#theia-app-shell');
     }
 
-    applicationShellExists(): boolean {
+    mainContentPanelExists(): boolean {
         return this.driver.waitForExist('#theia-main-content-panel');
     }
 
@@ -40,17 +40,8 @@ export class MainPage {
         return this.driver.isExisting('.p-Widget div.terminal.xterm');
     }
 
-    isProblemsViewVisible(): boolean {
-        return this.driver.isExisting('.p-Widget div.theia-marker-container');
-    }
-
     closeTerminal() {
         this.driver.rightClick('.p-Widget.p-TabBar .p-TabBar-tab[title*=Terminal]');
-        this.driver.element(`.p-Widget.p-Menu .p-Menu-content`).click(`div\=Close`);
-    }
-
-    closeProblemsView() {
-        this.driver.element(`.p-Widget.p-TabBar .p-TabBar-tab.p-mod-closable`).rightClick(`div\=Problems`);
         this.driver.element(`.p-Widget.p-Menu .p-Menu-content`).click(`div\=Close`);
     }
 

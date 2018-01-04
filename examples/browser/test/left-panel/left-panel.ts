@@ -28,6 +28,5 @@ export class LeftPanel {
 
     isExtensionTabVisible(): boolean {
         return (this.driver.element('#extensions').getAttribute('class').split(' ').indexOf('p-mod-hidden') === -1)
-
     }
 }
