@@ -18,8 +18,25 @@ export class BottomPanel {
         this.driver.element(`.p-Widget.p-TabBar.theia-SideBar.theia-mod-bottom .p-TabBar-content`).click(`div\=${tabName}`);
     }
 
+    isTerminalVisible(): boolean {
+        return this.driver.isExisting('.p-Widget div.terminal.xterm');
+    }
+
+    waitForTerminal() {
+        this.driver.waitForExist('.p-Widget div.terminal.xterm');
+    }
+
+    closeTerminal() {
+        this.driver.rightClick('.p-Widget.p-TabBar .p-TabBar-tab[title*=Terminal]');
+        this.driver.element(`.p-Widget.p-Menu .p-Menu-content`).click(`div\=Close`);
+    }
+
     isProblemsViewVisible(): boolean {
         return this.driver.isExisting('.p-Widget div.theia-marker-container');
+    }
+
+    waitForProblemsView() {
+        this.driver.waitForExist('.p-Widget div.theia-marker-container');
     }
 
     closeProblemsView() {

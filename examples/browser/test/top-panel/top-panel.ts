@@ -13,17 +13,9 @@ export class TopPanel {
         this.clickSubMenu('New Terminal');
     }
 
-    waitForTerminal() {
-        this.driver.waitForExist('.p-Widget div.terminal.xterm');
-    }
-
     openProblemsView() {
         this.clickMenuTab('View');
         this.clickSubMenu('Open Problems View');
-    }
-
-    waitForProblemsView() {
-        this.driver.waitForExist('.p-Widget div.theia-marker-container');
     }
 
     isSubMenuVisible(): boolean {

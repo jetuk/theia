@@ -36,15 +36,6 @@ export class MainPage {
         return this.driver.waitForExist('div#theia-statusBar');
     }
 
-    isTerminalVisible(): boolean {
-        return this.driver.isExisting('.p-Widget div.terminal.xterm');
-    }
-
-    closeTerminal() {
-        this.driver.rightClick('.p-Widget.p-TabBar .p-TabBar-tab[title*=Terminal]');
-        this.driver.element(`.p-Widget.p-Menu .p-Menu-content`).click(`div\=Close`);
-    }
-
     closeAll() {
         /* Make sure that all the "docked" layouts are closed */
         while (this.driver.isExisting(`.p-Widget.p-TabBar .p-TabBar-tab.p-mod-closable`)) {

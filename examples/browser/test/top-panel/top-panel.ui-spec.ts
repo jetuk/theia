@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { TopPanel } from "./top-panel";
 import { BottomPanel } from "../bottom-panel/bottom-panel";
 import { MainPage } from '../main-page/main-page';
-let topPanelComponent: TopPanel;
+let topPanel: TopPanel;
 let bottomPanel: BottomPanel;
 let mainPage: MainPage;
 
@@ -12,7 +12,7 @@ before(() => {
     const url = '/';
 
     driver.url(url);
-    topPanelComponent = new TopPanel(driver);
+    topPanel = new TopPanel(driver);
     bottomPanel = new BottomPanel(driver);
     mainPage = new MainPage(driver);
     /* Make sure that the application shell is loaded */
@@ -21,61 +21,62 @@ before(() => {
 
 describe('theia top panel (menubar)', () => {
     it('should show the top panel', () => {
-        expect(topPanelComponent.exists()).to.be.true;
+        expect(topPanel.exists()).to.be.true;
     });
 
     it('should set a menu item active when hovered', () => {
-        topPanelComponent.hoverMenuTab(1);
-        expect(topPanelComponent.isTabActive(1)).to.be.true;
+        topPanel.hoverMenuTab(1);
+        expect(topPanel.isTabActive(1)).to.be.true;
 
-        topPanelComponent.hoverMenuTab(2);
-        expect(topPanelComponent.isTabActive(1)).to.be.false;
-        expect(topPanelComponent.isTabActive(2)).to.be.true;
+        topPanel.hoverMenuTab(2);
+        expect(topPanel.isTabActive(1)).to.be.false;
+        expect(topPanel.isTabActive(2)).to.be.true;
     });
 
     it('should show menu correctly when clicked on a tab', () => {
         /* No menu at the start */
-        expect(topPanelComponent.isSubMenuVisible()).to.be.false;
+        expect(topPanel.isSubMenuVisible()).to.be.false;
 
         /* Click on the first child */
-        topPanelComponent.clickMenuTab(1);
-        expect(topPanelComponent.isSubMenuVisible()).to.be.true;
+        topPanel.clickMenuTab(1);
+        expect(topPanel.isSubMenuVisible()).to.be.true;
 
         /* Click again to make the menu disappear */
-        topPanelComponent.clickMenuTab(1);
-        expect(topPanelComponent.isSubMenuVisible()).to.be.false;
+        topPanel.clickMenuTab(1);
+        expect(topPanel.isSubMenuVisible()).to.be.false;
 
         /* Make sure the menu location is directly under the bar tab */
-        topPanelComponent.clickMenuTab(1);
-        let tabX = topPanelComponent.getxBarTabPosition(1);
-        let menuX = topPanelComponent.getxSubMenuPosition();
+        topPanel.clickMenuTab(1);
+        let tabX = topPanel.getxBarTabPosition(1);
+        let menuX = topPanel.getxSubMenuPosition();
         expect(tabX).to.be.equal(menuX);
 
         /* Test with the second tab by hovering to the second one */
-        topPanelComponent.hoverMenuTab(2);
-        tabX = topPanelComponent.getxBarTabPosition(2);
-        menuX = topPanelComponent.getxSubMenuPosition();
+        topPanel.hoverMenuTab(2);
+        tabX = topPanel.getxBarTabPosition(2);
+        menuX = topPanel.getxSubMenuPosition();
         expect(tabX).to.be.equal(menuX);
 
-        topPanelComponent.clickMenuTab(2);
-        expect(topPanelComponent.isSubMenuVisible()).to.be.false;
+        topPanel.clickMenuTab(2);
+        expect(topPanel.isSubMenuVisible()).to.be.false;
     });
 
     describe('terminal ui tests', () => {
         it('should open a new terminal and then close it', () => {
-            topPanelComponent.openNewTerminal();
-            topPanelComponent.waitForTerminal();
-            expect(mainPage.isTerminalVisible()).to.be.true;
+            topPanel.openNewTerminal();
+            bottomPanel.waitForTerminal();
+            expect(bottomPanel.isTerminalVisible()).to.be.true;
 
-            mainPage.closeTerminal();
-            expect(mainPage.isTerminalVisible()).to.be.false;
+            // TODO implement close command for the bottom panel
+            //bottomPanel.closeTerminal();
+            //expect(mainPage.isTerminalVisible()).to.be.false;
         });
     });
 
     describe('problems view ui tests', () => {
         it('should open a new problems view and then close it', () => {
-            topPanelComponent.openProblemsView();
-            topPanelComponent.waitForProblemsView();
+            topPanel.openProblemsView();
+            bottomPanel.waitForProblemsView();
             expect(bottomPanel.isProblemsViewVisible()).to.be.true;
 
             // TODO implement close command for the bottom panel
