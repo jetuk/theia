@@ -51,10 +51,9 @@ export class GitFrontendContribution implements FrontendApplicationContribution 
     }
 
     async initializeLayout(app: FrontendApplication): Promise<void> {
-        this.widgetManager.getOrCreateWidget(GIT_WIDGET_FACTORY_ID).then(widget => {
-            app.shell.addToLeftArea(widget, {
-                rank: 200
-            });
+        const widget = await this.widgetManager.getOrCreateWidget(GIT_WIDGET_FACTORY_ID);
+        app.shell.addToLeftArea(widget, {
+            rank: 200
         });
     }
 

@@ -71,7 +71,7 @@ export class TreeWidget extends VirtualWidget implements StatefulWidget {
         this.toDispose.push(model);
     }
 
-    onActivateRequest(msg: Message): void {
+    protected onActivateRequest(msg: Message): void {
         super.onActivateRequest(msg);
         if (!this.model.selectedNode && ISelectableTreeNode.is(this.model.root)) {
             this.model.selectNode(this.model.root);

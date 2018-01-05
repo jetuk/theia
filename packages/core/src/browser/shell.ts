@@ -32,30 +32,20 @@ import { Saveable } from "./saveable";
 import { ContextMenuRenderer } from "./context-menu-renderer";
 import { StatusBarImpl, StatusBarLayoutData } from "./status-bar/status-bar";
 
-/**
- * The class name added to AppShell instances.
- */
+/** The class name added to ApplicationShell instances. */
 const APPLICATION_SHELL_CLASS = 'theia-ApplicationShell';
-
-/**
- * The class name added to side bar instances.
- */
-const SIDEBAR_CLASS = 'theia-SideBar';
-
-/**
- * The class name added to the current widget's title.
- */
+/** The class name added to the main area panel. */
+const MAIN_AREA_CLASS = 'theia-app-main';
+/** The class name added to the main and bottom area panels. */
+const MAIN_BOTTOM_AREA_CLASS = 'theia-app-centers';
+/** The class name added to the left and right area panels. */
+const LEFT_RIGHT_AREA_CLASS = 'theia-app-sides';
+/** The class name added to the current widget's title. */
 const CURRENT_CLASS = 'theia-mod-current';
-
-/**
- * The class name added to the active widget's title.
- */
+/** The class name added to the active widget's title. */
 const ACTIVE_CLASS = 'theia-mod-active';
-
-/**
- * The class name added to the tab bar in a dock panel.
- */
-const DOCK_PANEL_TAB_BAR_CLASS = 'p-DockPanel-tabBar';
+/** The class name added to collapsed side panels. */
+const COLLAPSED_CLASS = 'theia-mod-collapsed';
 
 export interface LayoutData {
     mainArea?: DockPanel.ILayoutConfig;
@@ -71,68 +61,80 @@ export interface SideBarLayoutData {
     widgets?: Widget[];
 }
 
-export const MAINAREA_TABBAR_CONTEXT_MENU: MenuPath = ['mainarea-tabbar-context-menu'];
+export const MAIN_AREA_TABBAR_CONTEXT_MENU: MenuPath = ['main-area-tabbar-context-menu'];
+export const SIDE_AREA_TABBAR_CONTEXT_MENU: MenuPath = ['side-area-tabbar-context-menu'];
 
 export const ApplicationShellOptions = Symbol("ApplicationShellOptions");
 
-export const DockPanelTabBarRendererFactory = Symbol('DockPanelTabBarRendererFactory');
+export const TabBarRendererFactory = Symbol('TabBarRendererFactory');
 
+/**
+ * A tab bar renderer that offers a context menu.
+ */
 @injectable()
-export class DockPanelTabBarRenderer implements TabBar.IRenderer<any> {
+export class TabBarRenderer implements TabBar.IRenderer<any> {
+
     readonly closeIconSelector = TabBar.defaultRenderer.closeIconSelector;
 
-    protected _tabBar: TabBar<Widget> | undefined = undefined;
-    constructor( @inject(ContextMenuRenderer) protected readonly contextMenuRenderer: ContextMenuRenderer) { }
+    tabBar?: TabBar<Widget>;
+    contextMenuPath?: MenuPath;
+
+    constructor(
+        @inject(ContextMenuRenderer) protected readonly contextMenuRenderer: ContextMenuRenderer
+    ) { }
 
     renderTab(data: TabBar.IRenderData<any>): VirtualElement {
+        const defaultRenderer = TabBar.defaultRenderer;
         const title = data.title;
-        const key = TabBar.defaultRenderer.createTabKey(data);
-        const style = TabBar.defaultRenderer.createTabStyle(data);
-        const className = TabBar.defaultRenderer.createTabClass(data);
-        const dataset = TabBar.defaultRenderer.createTabDataset(data);
+        const key = defaultRenderer.createTabKey(data);
+        const style = defaultRenderer.createTabStyle(data);
+        const className = defaultRenderer.createTabClass(data);
+        const dataset = defaultRenderer.createTabDataset(data);
         return (
             h.li({
                 key, className, title: title.caption, style, dataset,
                 oncontextmenu: event => this.handleContextMenuEvent(event, title)
             },
-                TabBar.defaultRenderer.renderIcon(data),
-                TabBar.defaultRenderer.renderLabel(data),
-                TabBar.defaultRenderer.renderCloseIcon(data)
+                defaultRenderer.renderIcon(data),
+                defaultRenderer.renderLabel(data),
+                defaultRenderer.renderCloseIcon(data)
             )
         );
     }
 
-    set tabBar(tabBar: TabBar<Widget>) {
-        this._tabBar = tabBar;
-    }
-
     handleContextMenuEvent(event: MouseEvent, title: Title<Widget>) {
-        event.stopPropagation();
-        event.preventDefault();
+        if (this.contextMenuPath) {
+            event.stopPropagation();
+            event.preventDefault();
 
-        if (this._tabBar !== undefined) {
-            this._tabBar.currentTitle = title;
-            if (title.owner !== null) {
-                title.owner.activate();
+            if (this.tabBar !== undefined) {
+                this.tabBar.currentTitle = title;
+                this.tabBar.activate();
+                if (title.owner !== null) {
+                    title.owner.activate();
+                }
             }
-        }
 
-        this.contextMenuRenderer.render(MAINAREA_TABBAR_CONTEXT_MENU, event);
+            this.contextMenuRenderer.render(this.contextMenuPath, event);
+        }
     }
 }
 
 @injectable()
 export class DockPanelRenderer implements DockLayout.IRenderer {
 
-    constructor( @inject(DockPanelTabBarRendererFactory) protected readonly tabBarRendererFactory: () => DockPanelTabBarRenderer) {
-    }
+    constructor(
+        @inject(TabBarRendererFactory) protected readonly tabBarRendererFactory: () => TabBarRenderer
+    ) { }
 
     createTabBar(): TabBar<Widget> {
         const renderer = this.tabBarRendererFactory();
-        const bar = new TabBar<Widget>({ renderer });
-        bar.addClass(DOCK_PANEL_TAB_BAR_CLASS);
-        renderer.tabBar = bar;
-        return bar;
+        const tabBar = new TabBar<Widget>({ renderer });
+        tabBar.addClass(MAIN_AREA_CLASS);
+        tabBar.addClass(MAIN_BOTTOM_AREA_CLASS);
+        renderer.tabBar = tabBar;
+        renderer.contextMenuPath = MAIN_AREA_TABBAR_CONTEXT_MENU;
+        return tabBar;
     }
 
     createHandle(): HTMLDivElement {
@@ -162,6 +164,7 @@ export class ApplicationShell extends Widget {
      */
     constructor(
         @inject(DockPanelRenderer) dockPanelRenderer: DockPanelRenderer,
+        @inject(TabBarRendererFactory) tabBarRendererFactory: () => TabBarRenderer,
         @inject(StatusBarImpl) protected readonly statusBar: StatusBarImpl,
         @inject(ApplicationShellOptions) @optional() options?: Widget.IOptions | undefined
     ) {
@@ -171,9 +174,9 @@ export class ApplicationShell extends Widget {
 
         this.topPanel = this.createTopPanel();
         this.mainPanel = this.createMainPanel(dockPanelRenderer);
-        this.leftPanelHandler = this.createSideBarHandler('left');
-        this.rightPanelHandler = this.createSideBarHandler('right');
-        this.bottomPanelHandler = this.createSideBarHandler('bottom');
+        this.leftPanelHandler = new SideBarHandler('left', tabBarRendererFactory);
+        this.rightPanelHandler = new SideBarHandler('right', tabBarRendererFactory);
+        this.bottomPanelHandler = new SideBarHandler('bottom', tabBarRendererFactory);
         this.layout = this.createLayout();
 
         this.tracker.currentChanged.connect(this.onCurrentChanged, this);
@@ -197,17 +200,6 @@ export class ApplicationShell extends Widget {
         dockPanel.id = 'theia-main-content-panel';
         dockPanel.spacing = 0;
         return dockPanel;
-    }
-
-    /**
-     * Create a handler for a side bar with corresponding panel for holding widgets.
-     */
-    protected createSideBarHandler(side: ApplicationShell.Area): SideBarHandler {
-        const handler = new SideBarHandler(side);
-        handler.sideBar.addClass(SIDEBAR_CLASS);
-        handler.sideBar.addClass('theia-mod-' + side);
-        handler.stackedPanel.id = 'theia-' + side + '-stack';
-        return handler;
     }
 
     /**
@@ -353,6 +345,121 @@ export class ApplicationShell extends Widget {
     }
 
     /**
+     * Add a widget to the main content area.
+     *
+     * #### Notes
+     * Widgets must have a unique `id` property, which will be used as the DOM id.
+     * All widgets added to the main area should be disposed after removal (or
+     * simply disposed in order to remove).
+     */
+    addToMainArea(widget: Widget): void {
+        if (!widget.id) {
+            console.error('widgets added to app shell must have unique id property');
+            return;
+        }
+        this.mainPanel.addWidget(widget, { mode: 'tab-after' });
+        this.track(widget);
+    }
+
+    /**
+     * Add a widget to the top panel.
+     *
+     * #### Notes
+     * Widgets must have a unique `id` property, which will be used as the DOM id.
+     */
+    addToTopArea(widget: Widget, options: ApplicationShell.ISideAreaOptions = {}): void {
+        if (!widget.id) {
+            console.error('widgets added to app shell must have unique id property');
+            return;
+        }
+        // Temporary: widgets are added to the panel in order of insertion.
+        this.topPanel.addWidget(widget);
+    }
+
+    /**
+     * Add a widget to the left content area.
+     *
+     * #### Notes
+     * Widgets must have a unique `id` property, which will be used as the DOM id.
+     */
+    addToLeftArea(widget: Widget, options: ApplicationShell.ISideAreaOptions = {}): void {
+        if (!widget.id) {
+            console.error('widgets added to app shell must have unique id property');
+            return;
+        }
+        const rank = options.rank !== undefined ? options.rank : 100;
+        this.leftPanelHandler.addWidget(widget, rank);
+        this.track(widget);
+    }
+
+    /**
+     * Add a widget to the right content area.
+     *
+     * #### Notes
+     * Widgets must have a unique `id` property, which will be used as the DOM id.
+     */
+    addToRightArea(widget: Widget, options: ApplicationShell.ISideAreaOptions = {}): void {
+        if (!widget.id) {
+            console.error('widgets added to app shell must have unique id property');
+            return;
+        }
+        const rank = options.rank !== undefined ? options.rank : 100;
+        this.rightPanelHandler.addWidget(widget, rank);
+        this.track(widget);
+    }
+
+    /**
+     * Add a widget to the bottom content area.
+     *
+     * #### Notes
+     * Widgets must have a unique `id` property, which will be used as the DOM id.
+     */
+    addToBottomArea(widget: Widget, options: ApplicationShell.ISideAreaOptions = {}): void {
+        if (!widget.id) {
+            console.error('widgets added to app shell must have unique id property');
+            return;
+        }
+        const rank = options.rank !== undefined ? options.rank : 100;
+        this.bottomPanelHandler.addWidget(widget, rank);
+        this.track(widget);
+    }
+
+    /**
+     * True if the main content area is empty.
+     */
+    get mainAreaIsEmpty(): boolean {
+        return this.mainPanel.isEmpty;
+    }
+
+    /**
+     * True if the left content area is empty.
+     */
+    get leftAreaIsEmpty(): boolean {
+        return this.leftPanelHandler.stackedPanel.widgets.length === 0;
+    }
+
+    /**
+     * True if the right content area is empty.
+     */
+    get rightAreaIsEmpty(): boolean {
+        return this.rightPanelHandler.stackedPanel.widgets.length === 0;
+    }
+
+    /**
+     * True if the top panel is empty.
+     */
+    get topAreaIsEmpty(): boolean {
+        return this.topPanel.widgets.length === 0;
+    }
+
+    /**
+     * True if the bottom content area is empty.
+     */
+    get bottomAreaIsEmpty(): boolean {
+        return this.bottomPanelHandler.stackedPanel.widgets.length === 0;
+    }
+
+    /**
      * The current widget in the application shell.
      */
     get currentWidget(): Widget | null {
@@ -367,38 +474,37 @@ export class ApplicationShell extends Widget {
     }
 
     /**
-     * True if left area is empty.
+     * Handle a change to the current widget.
      */
-    get leftAreaIsEmpty(): boolean {
-        return this.leftPanelHandler.stackedPanel.widgets.length === 0;
+    private onCurrentChanged(sender: any, args: FocusTracker.IChangedArgs<Widget>): void {
+        if (args.newValue) {
+            args.newValue.title.className += ` ${CURRENT_CLASS}`;
+        }
+        if (args.oldValue) {
+            args.oldValue.title.className = args.oldValue.title.className.replace(CURRENT_CLASS, '');
+        }
+        this.currentChanged.emit(args);
     }
 
     /**
-     * True if main area is empty.
+     * Handle a change to the active widget.
      */
-    get mainAreaIsEmpty(): boolean {
-        return this.mainPanel.isEmpty;
+    private onActiveChanged(sender: any, args: FocusTracker.IChangedArgs<Widget>): void {
+        if (args.newValue) {
+            args.newValue.title.className += ` ${ACTIVE_CLASS}`;
+        }
+        if (args.oldValue) {
+            args.oldValue.title.className = args.oldValue.title.className.replace(ACTIVE_CLASS, '');
+        }
+        this.activeChanged.emit(args);
     }
 
     /**
-     * True if right area is empty.
+     * Track the given widget so it is considered in the `current` and `active` state of the shell.
      */
-    get rightAreaIsEmpty(): boolean {
-        return this.rightPanelHandler.stackedPanel.widgets.length === 0;
-    }
-
-    /**
-     * True if top area is empty.
-     */
-    get topAreaIsEmpty(): boolean {
-        return this.topPanel.widgets.length === 0;
-    }
-
-    /**
-     * True if bottom area is empty.
-     */
-    get bottomAreaIsEmpty(): boolean {
-        return this.bottomPanelHandler.stackedPanel.widgets.length === 0;
+    protected track(widget: Widget): void {
+        this.tracker.add(widget);
+        Saveable.apply(widget);
     }
 
     /**
@@ -427,7 +533,7 @@ export class ApplicationShell extends Widget {
     }
 
     /*
-     * Activate the next Tab in the active TabBar.
+     * Activate the next Tab in the current TabBar.
      */
     activateNextTab(): void {
         const current = this.currentTabBar();
@@ -440,7 +546,7 @@ export class ApplicationShell extends Widget {
                         current.currentTitle.owner.activate();
                     }
                 } else if (ci === current.titles.length - 1) {
-                    const nextBar = this.nextTabBar();
+                    const nextBar = this.nextTabBar(current);
                     if (nextBar) {
                         nextBar.currentIndex = 0;
                         if (nextBar.currentTitle) {
@@ -453,7 +559,7 @@ export class ApplicationShell extends Widget {
     }
 
     /*
-     * Activate the previous Tab in the active TabBar.
+     * Activate the previous Tab in the current TabBar.
      */
     activatePreviousTab(): void {
         const current = this.currentTabBar();
@@ -466,7 +572,7 @@ export class ApplicationShell extends Widget {
                         current.currentTitle.owner.activate();
                     }
                 } else if (ci === 0) {
-                    const prevBar = this.previousTabBar();
+                    const prevBar = this.previousTabBar(current);
                     if (prevBar) {
                         const len = prevBar.titles.length;
                         prevBar.currentIndex = len - 1;
@@ -477,86 +583,6 @@ export class ApplicationShell extends Widget {
                 }
             }
         }
-    }
-
-    /**
-     * Add a widget to the left content area.
-     *
-     * #### Notes
-     * Widgets must have a unique `id` property, which will be used as the DOM id.
-     */
-    addToLeftArea(widget: Widget, options: ApplicationShell.ISideAreaOptions = {}): void {
-        if (!widget.id) {
-            console.error('widgets added to app shell must have unique id property');
-            return;
-        }
-        const rank = options.rank !== undefined ? options.rank : 100;
-        this.leftPanelHandler.addWidget(widget, rank);
-        this.track(widget);
-    }
-
-    /**
-     * Add a widget to the main content area.
-     *
-     * #### Notes
-     * Widgets must have a unique `id` property, which will be used as the DOM id.
-     * All widgets added to the main area should be disposed after removal (or
-     * simply disposed in order to remove).
-     */
-    addToMainArea(widget: Widget): void {
-        if (!widget.id) {
-            console.error('widgets added to app shell must have unique id property');
-            return;
-        }
-        this.mainPanel.addWidget(widget, { mode: 'tab-after' });
-        this.track(widget);
-    }
-
-    /**
-     * Add a widget to the right content area.
-     *
-     * #### Notes
-     * Widgets must have a unique `id` property, which will be used as the DOM id.
-     */
-    addToRightArea(widget: Widget, options: ApplicationShell.ISideAreaOptions = {}): void {
-        if (!widget.id) {
-            console.error('widgets added to app shell must have unique id property');
-            return;
-        }
-        const rank = options.rank !== undefined ? options.rank : 100;
-        this.rightPanelHandler.addWidget(widget, rank);
-        this.track(widget);
-    }
-
-    /**
-     * Add a widget to the top content area.
-     *
-     * #### Notes
-     * Widgets must have a unique `id` property, which will be used as the DOM id.
-     */
-    addToTopArea(widget: Widget, options: ApplicationShell.ISideAreaOptions = {}): void {
-        if (!widget.id) {
-            console.error('widgets added to app shell must have unique id property');
-            return;
-        }
-        // Temporary: widgets are added to the panel in order of insertion.
-        this.topPanel.addWidget(widget);
-    }
-
-    /**
-     * Add a widget to the bottom content area.
-     *
-     * #### Notes
-     * Widgets must have a unique `id` property, which will be used as the DOM id.
-     */
-    addToBottomArea(widget: Widget, options: ApplicationShell.ISideAreaOptions = {}): void {
-        if (!widget.id) {
-            console.error('widgets added to app shell must have unique id property');
-            return;
-        }
-        const rank = options.rank !== undefined ? options.rank : 100;
-        this.bottomPanelHandler.addWidget(widget, rank);
-        this.track(widget);
     }
 
     /**
@@ -581,9 +607,30 @@ export class ApplicationShell extends Widget {
     }
 
     /**
+     * Collapse the side panel with the current tab.
+     */
+    collapseCurrentTab(): void {
+        const currentWidget = this.tracker.currentWidget;
+        if (currentWidget) {
+            const leftPanelTabBar = this.leftPanelHandler.sideBar;
+            if (ArrayExt.firstIndexOf(leftPanelTabBar.titles, currentWidget.title) > -1) {
+                this.collapseLeft();
+            }
+            const rightPanelTabBar = this.rightPanelHandler.sideBar;
+            if (ArrayExt.firstIndexOf(rightPanelTabBar.titles, currentWidget.title) > -1) {
+                this.collapseRight();
+            }
+            const bottomPanelTabBar = this.bottomPanelHandler.sideBar;
+            if (ArrayExt.firstIndexOf(bottomPanelTabBar.titles, currentWidget.title) > -1) {
+                this.collapseBottom();
+            }
+        }
+    }
+
+    /**
      * Close the current tab.
      */
-    closeTab(): void {
+    closeCurrentTab(): void {
         const current = this.currentTabBar();
         if (current) {
             const ci = current.currentIndex;
@@ -658,6 +705,76 @@ export class ApplicationShell extends Widget {
     }
 
     /**
+     * Checks to see if a tab is currently selected.
+     */
+    hasSelectedTab(): boolean {
+        const current = this.currentTabBar();
+        if (current) {
+            return current.currentIndex !== -1;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Return the TabBar that has the currently active Widget or undefined.
+     */
+    private currentTabBar(): TabBar<Widget> | undefined {
+        const currentWidget = this.tracker.currentWidget;
+        if (currentWidget) {
+            const title = currentWidget.title;
+            const mainPanelTabBar = find(this.mainPanel.tabBars(), bar => ArrayExt.firstIndexOf(bar.titles, title) > -1);
+            if (mainPanelTabBar) {
+                return mainPanelTabBar;
+            }
+            const leftPanelTabBar = this.leftPanelHandler.sideBar;
+            if (ArrayExt.firstIndexOf(leftPanelTabBar.titles, title) > -1) {
+                return leftPanelTabBar;
+            }
+            const rightPanelTabBar = this.rightPanelHandler.sideBar;
+            if (ArrayExt.firstIndexOf(rightPanelTabBar.titles, title) > -1) {
+                return rightPanelTabBar;
+            }
+            const bottomPanelTabBar = this.bottomPanelHandler.sideBar;
+            if (ArrayExt.firstIndexOf(bottomPanelTabBar.titles, title) > -1) {
+                return bottomPanelTabBar;
+            }
+        }
+    }
+
+    /**
+     * Return the TabBar previous to the given TabBar or undefined.
+     */
+    private previousTabBar(current: TabBar<Widget>): TabBar<Widget> | undefined {
+        const bars = toArray(this.mainPanel.tabBars());
+        const len = bars.length;
+        const ci = ArrayExt.firstIndexOf(bars, current);
+        let prevBar: TabBar<Widget> | undefined;
+        if (ci > 0) {
+            prevBar = bars[ci - 1];
+        } else if (ci === 0) {
+            prevBar = bars[len - 1];
+        }
+        return prevBar;
+    }
+
+    /**
+     * Return the TabBar next to the given TabBar or undefined.
+     */
+    private nextTabBar(current: TabBar<Widget>): TabBar<Widget> | undefined {
+        const bars = toArray(this.mainPanel.tabBars());
+        const len = bars.length;
+        const ci = ArrayExt.firstIndexOf(bars, current);
+        let nextBar: TabBar<Widget> | undefined;
+        if (ci < (len - 1)) {
+            nextBar = bars[ci + 1];
+        } else if (ci === len - 1) {
+            nextBar = bars[0];
+        }
+        return nextBar;
+    }
+
+    /**
      * Test whether the current widget is dirty.
      */
     canSave(): boolean {
@@ -685,106 +802,6 @@ export class ApplicationShell extends Widget {
         await Promise.all(this.tracker.widgets.map(Saveable.save));
     }
 
-    /**
-     * Checks to see if a tab is currently selected
-     */
-    hasSelectedTab(): boolean {
-        const current = this.currentTabBar();
-        if (current) {
-            return current.currentIndex !== -1;
-        } else {
-            return false;
-        }
-    }
-
-    /*
-     * Return the TabBar that has the currently active Widget or undefined.
-     */
-    private currentTabBar(): TabBar<Widget> | undefined {
-        const current = this.tracker.currentWidget;
-        if (current) {
-            const title = current.title;
-            const tabBar = find(this.mainPanel.tabBars(), bar => {
-                return ArrayExt.firstIndexOf(bar.titles, title) > -1;
-            });
-            return tabBar;
-        }
-        return undefined;
-    }
-
-    /*
-     * Return the TabBar previous to the current TabBar (see above) or undefined.
-     */
-    private previousTabBar(): TabBar<Widget> | null {
-        const current = this.currentTabBar();
-        if (current) {
-            const bars = toArray(this.mainPanel.tabBars());
-            const len = bars.length;
-            const ci = ArrayExt.firstIndexOf(bars, current);
-            let prevBar: TabBar<Widget> | null = null;
-            if (ci > 0) {
-                prevBar = bars[ci - 1];
-            } else if (ci === 0) {
-                prevBar = bars[len - 1];
-            }
-            return prevBar;
-        }
-        return null;
-    }
-
-    /*
-     * Return the TabBar next to the current TabBar (see above) or undefined.
-     */
-    private nextTabBar(): TabBar<Widget> | null {
-        const current = this.currentTabBar();
-        if (current) {
-            const bars = toArray(this.mainPanel.tabBars());
-            const len = bars.length;
-            const ci = ArrayExt.firstIndexOf(bars, current);
-            let nextBar: TabBar<Widget> | null = null;
-            if (ci < (len - 1)) {
-                nextBar = bars[ci + 1];
-            } else if (ci === len - 1) {
-                nextBar = bars[0];
-            }
-            return nextBar;
-        }
-        return null;
-    }
-
-    /**
-     * Handle a change to the current widget.
-     */
-    private onCurrentChanged(sender: any, args: FocusTracker.IChangedArgs<Widget>): void {
-        if (args.newValue) {
-            args.newValue.title.className += ` ${CURRENT_CLASS}`;
-        }
-        if (args.oldValue) {
-            args.oldValue.title.className = args.oldValue.title.className.replace(CURRENT_CLASS, '');
-        }
-        this.currentChanged.emit(args);
-    }
-
-    /**
-     * Handle a change to the active widget.
-     */
-    private onActiveChanged(sender: any, args: FocusTracker.IChangedArgs<Widget>): void {
-        if (args.newValue) {
-            args.newValue.title.className += ` ${ACTIVE_CLASS}`;
-        }
-        if (args.oldValue) {
-            args.oldValue.title.className = args.oldValue.title.className.replace(ACTIVE_CLASS, '');
-        }
-        this.activeChanged.emit(args);
-    }
-
-    /**
-     * Track the given widget so it is considered in the `current` and `active` state of the shell.
-     */
-    protected track(widget: Widget): void {
-        this.tracker.add(widget);
-        Saveable.apply(widget);
-    }
 }
 
 /**
@@ -847,23 +864,36 @@ export class SideBarHandler {
     /**
      * Construct a new side bar handler.
      */
-    constructor(private readonly side: ApplicationShell.Area) {
-        this.sideBar = new TabBar<Widget>({
+    constructor(private readonly side: ApplicationShell.Area, tabBarRendererFactory: () => TabBarRenderer) {
+        const tabBarRenderer = tabBarRendererFactory();
+        const sideBar = this.sideBar = new TabBar<Widget>({
             orientation: side === 'left' || side === 'right' ? 'vertical' : 'horizontal',
             insertBehavior: 'none',
             removeBehavior: 'none',
-            allowDeselect: true
+            allowDeselect: true,
+            renderer: tabBarRenderer
         });
-        this.stackedPanel = new StackedPanel();
-        this.sideBar.hide();
-        this.stackedPanel.hide();
-        this.sideBar.currentChanged.connect(this.onCurrentChanged, this);
-        this.sideBar.tabActivateRequested.connect(this.onTabActivateRequested, this);
-        this.stackedPanel.widgetRemoved.connect(this.onWidgetRemoved, this);
+        tabBarRenderer.tabBar = sideBar;
+        tabBarRenderer.contextMenuPath = SIDE_AREA_TABBAR_CONTEXT_MENU;
+        sideBar.addClass('theia-app-' + side);
+        if (side === 'left' || side === 'right') {
+            sideBar.addClass(LEFT_RIGHT_AREA_CLASS);
+        } else {
+            sideBar.addClass(MAIN_BOTTOM_AREA_CLASS);
+        }
+        sideBar.hide();
+        sideBar.currentChanged.connect(this.onCurrentChanged, this);
+        sideBar.tabActivateRequested.connect(this.onTabActivateRequested, this);
+        sideBar.tabCloseRequested.connect(this.onTabCloseRequested, this);
+
+        const stackedPanel = this.stackedPanel = new StackedPanel();
+        stackedPanel.id = 'theia-' + side + '-stack';
+        stackedPanel.hide();
+        stackedPanel.widgetRemoved.connect(this.onWidgetRemoved, this);
     }
 
     getLayoutData(): SideBarLayoutData {
-        const currentExpanded = this.findWidgetByTitle(this.sideBar.currentTitle) || undefined;
+        const currentExpanded = this.findWidgetByTitle(this.sideBar.currentTitle);
         return {
             type: 'sidebar',
             widgets: this.stackedPanel.widgets as Widget[],
@@ -876,9 +906,7 @@ export class SideBarHandler {
         if (layoutData.widgets) {
             let index = 0;
             for (const widget of layoutData.widgets) {
-                if (widget) {
-                    this.addWidget(widget, index++);
-                }
+                this.addWidget(widget, index++);
             }
         }
         if (layoutData.expandedWidgets) {
@@ -954,7 +982,7 @@ export class SideBarHandler {
     }
 
     /**
-     * Find the widget which owns the given title, or `null`.
+     * Find the widget which owns the given title, or `undefined`.
      */
     private findWidgetByTitle(title: Title<Widget> | null): Widget | undefined {
         const item = find(this.items, value => value.widget.title === title);
@@ -962,7 +990,7 @@ export class SideBarHandler {
     }
 
     /**
-     * Find the widget with the given id, or `null`.
+     * Find the widget with the given id, or `undefined`.
      */
     private findWidgetByID(id: string): Widget | undefined {
         const item = find(this.items, value => value.widget.id === id);
@@ -973,14 +1001,16 @@ export class SideBarHandler {
      * Refresh the visibility of the side bar and stacked panel.
      */
     private refreshVisibility(): void {
-        this.sideBar.setHidden(this.sideBar.titles.length === 0);
+        const hideSideBar = this.sideBar.titles.length === 0;
+        this.sideBar.setHidden(hideSideBar);
         const hideStack = this.sideBar.currentTitle === null;
         this.stackedPanel.setHidden(hideStack);
         if (this.stackedPanel.parent) {
+            this.stackedPanel.parent.setHidden(hideSideBar && hideStack);
             if (hideStack) {
-                this.stackedPanel.parent.addClass('theia-mod-collapsed');
+                this.stackedPanel.parent.addClass(COLLAPSED_CLASS);
             } else {
-                this.stackedPanel.parent.removeClass('theia-mod-collapsed');
+                this.stackedPanel.parent.removeClass(COLLAPSED_CLASS);
             }
         }
     }
@@ -1010,6 +1040,13 @@ export class SideBarHandler {
      */
     private onTabActivateRequested(sender: TabBar<Widget>, args: TabBar.ITabActivateRequestedArgs<Widget>): void {
         args.title.owner.activate();
+    }
+
+    /**
+     * Handle a `tabCloseRequest` signal from the sidebar.
+     */
+    private onTabCloseRequested(sender: TabBar<Widget>, args: TabBar.ITabCloseRequestedArgs<Widget>): void {
+        args.title.owner.close();
     }
 
     /*

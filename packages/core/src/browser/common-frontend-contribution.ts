@@ -11,9 +11,8 @@ import { KeybindingContribution, KeybindingRegistry } from '../common/keybinding
 import { KeyCode, Key, Modifier } from '../common/keys';
 import { CommandContribution, CommandRegistry, Command } from '../common/command';
 import { MessageService } from '../common/message-service';
-import { ApplicationShell } from './shell';
+import { ApplicationShell, MAIN_AREA_TABBAR_CONTEXT_MENU, SIDE_AREA_TABBAR_CONTEXT_MENU } from './shell';
 import * as browser from './browser';
-import { MAINAREA_TABBAR_CONTEXT_MENU } from './shell';
 
 export namespace CommonMenus {
 
@@ -90,6 +89,10 @@ export namespace CommonCommands {
         id: 'core.close.all.tabs',
         label: 'Close All'
     };
+    export const COLLAPSE_TAB: Command = {
+        id: 'core.collapse.tab',
+        label: 'Collapse'
+    };
 
     export const SAVE: Command = {
         id: 'core.save',
@@ -154,20 +157,33 @@ export class CommonFrontendContribution implements MenuContribution, CommandCont
             order: '2'
         });
 
-        registry.registerMenuAction(MAINAREA_TABBAR_CONTEXT_MENU, {
+        registry.registerMenuAction(MAIN_AREA_TABBAR_CONTEXT_MENU, {
             commandId: CommonCommands.CLOSE_TAB.id,
             order: '0'
         });
-        registry.registerMenuAction(MAINAREA_TABBAR_CONTEXT_MENU, {
+        registry.registerMenuAction(MAIN_AREA_TABBAR_CONTEXT_MENU, {
             commandId: CommonCommands.CLOSE_OTHER_TABS.id,
             order: '1'
         });
-        registry.registerMenuAction(MAINAREA_TABBAR_CONTEXT_MENU, {
+        registry.registerMenuAction(MAIN_AREA_TABBAR_CONTEXT_MENU, {
             commandId: CommonCommands.CLOSE_RIGHT_TABS.id,
             order: '2'
         });
-        registry.registerMenuAction(MAINAREA_TABBAR_CONTEXT_MENU, {
+        registry.registerMenuAction(MAIN_AREA_TABBAR_CONTEXT_MENU, {
             commandId: CommonCommands.CLOSE_ALL_TABS.id,
+            order: '3'
+        });
+
+        registry.registerMenuAction(SIDE_AREA_TABBAR_CONTEXT_MENU, {
+            commandId: CommonCommands.CLOSE_TAB.id,
+            order: '0'
+        });
+        registry.registerMenuAction(SIDE_AREA_TABBAR_CONTEXT_MENU, {
+            commandId: CommonCommands.CLOSE_ALL_TABS.id,
+            order: '1'
+        });
+        registry.registerMenuAction(SIDE_AREA_TABBAR_CONTEXT_MENU, {
+            commandId: CommonCommands.COLLAPSE_TAB.id,
             order: '3'
         });
 
@@ -224,7 +240,7 @@ export class CommonFrontendContribution implements MenuContribution, CommandCont
         });
         commandRegistry.registerCommand(CommonCommands.CLOSE_TAB, {
             isEnabled: () => this.shell.hasSelectedTab(),
-            execute: () => this.shell.closeTab()
+            execute: () => this.shell.closeCurrentTab()
         });
         commandRegistry.registerCommand(CommonCommands.CLOSE_OTHER_TABS, {
             isEnabled: () => this.shell.hasSelectedTab(),
@@ -237,6 +253,10 @@ export class CommonFrontendContribution implements MenuContribution, CommandCont
         commandRegistry.registerCommand(CommonCommands.CLOSE_ALL_TABS, {
             isEnabled: () => this.shell.hasSelectedTab(),
             execute: () => this.shell.closeAllTabs()
+        });
+        commandRegistry.registerCommand(CommonCommands.COLLAPSE_TAB, {
+            isEnabled: () => this.shell.hasSelectedTab(),
+            execute: () => this.shell.collapseCurrentTab()
         });
 
         commandRegistry.registerCommand(CommonCommands.SAVE, {
@@ -302,6 +322,10 @@ export class CommonFrontendContribution implements MenuContribution, CommandCont
             {
                 commandId: CommonCommands.CLOSE_ALL_TABS.id,
                 keyCode: KeyCode.createKeyCode({ first: Key.KEY_W, modifiers: [Modifier.M2, Modifier.M3] })
+            },
+            {
+                commandId: CommonCommands.COLLAPSE_TAB.id,
+                keyCode: KeyCode.createKeyCode({ first: Key.KEY_C, modifiers: [Modifier.M3] })
             },
             {
                 commandId: CommonCommands.SAVE.id,

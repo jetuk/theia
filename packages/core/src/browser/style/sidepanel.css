@@ -8,78 +8,52 @@
 
 
 /*-----------------------------------------------------------------------------
-| SideBar (general)
+| SideBars (left and right)
 |----------------------------------------------------------------------------*/
 
-.theia-SideBar.p-TabBar {
+.p-TabBar.theia-app-sides {
   color: var(--theia-ui-font-color1);
   background: var(--theia-layout-color0);
   font-size: var(--theia-ui-font-size1);
   overflow: visible;
   display: block;
-}
-
-.theia-SideBar .p-TabBar-tab {
-  background: var(--theia-layout-color0);
-  border: none;
-  overflow: visible;
-}
-
-.theia-SideBar .p-TabBar-tab.p-mod-current {
-  background: var(--theia-layout-color3);
-}
-
-.theia-SideBar .p-TabBar-tab:hover:not(.p-mod-current) {
-  background: var(--theia-layout-color1);
-}
-
-.theia-SideBar .p-TabBar-tabIcon,
-.theia-SideBar .p-TabBar-tabLabel,
-.theia-SideBar .p-TabBar-tabCloseIcon {
-  display: inline-block;
-}
-
-.theia-SideBar .p-TabBar-tabIcon {
-  width: 15px;
-  line-height: 1.7;
-  max-height: calc(var(--theia-ui-font-size1) * 0.8);
-}
-
-.theia-SideBar .p-TabBar-tab > .p-TabBar-tabCloseIcon {
-  height: 0px;
-  width: 0px;
-}
-
-
-/*-----------------------------------------------------------------------------
-| SideBar (left and right)
-|----------------------------------------------------------------------------*/
-
-.theia-SideBar.p-TabBar.theia-mod-left,
-.theia-SideBar.p-TabBar.theia-mod-right {
   min-width: var(--theia-private-sidebar-tab-width); 
   max-width: var(--theia-private-sidebar-tab-width);
 }
 
-.theia-SideBar.theia-mod-left .p-TabBar-tab,
-.theia-SideBar.theia-mod-right .p-TabBar-tab {
+.p-TabBar.theia-app-sides .p-TabBar-tab {
+  background: var(--theia-layout-color0);
+  border: none;
+  overflow: visible;
   padding: 0 18px;
   line-height: var(--theia-private-sidebar-tab-width);
 }
 
-.theia-SideBar.theia-mod-left .p-TabBar-content,
-.theia-SideBar.theia-mod-right .p-TabBar-content {
+.p-TabBar.theia-app-sides .p-TabBar-tab.p-mod-current {
+  background: var(--theia-layout-color3);
+}
+
+.p-TabBar.theia-app-sides .p-TabBar-tab:hover:not(.p-mod-current) {
+  background: var(--theia-layout-color1);
+}
+
+.p-TabBar.theia-app-sides .p-TabBar-tabIcon,
+.p-TabBar.theia-app-sides .p-TabBar-tabCloseIcon {
+  display: none;
+}
+
+.p-TabBar.theia-app-sides .p-TabBar-content {
   align-items: stretch;
   height: var(--theia-private-sidebar-tab-width);
   transform-origin: 0 0 0;
 }
 
-.theia-SideBar.theia-mod-left .p-TabBar-content {
+.p-TabBar.theia-app-left .p-TabBar-content {
   flex-direction: row-reverse;
   transform: rotate(-90deg) translateX(-100%);
 }
 
-.theia-SideBar.theia-mod-right .p-TabBar-content {
+.p-TabBar.theia-app-right .p-TabBar-content {
   flex-direction: row;
   transform: rotate(90deg) translateY(-100%);
 }
@@ -103,39 +77,19 @@
 
 
 /*-----------------------------------------------------------------------------
-| SideBar (top and bottom)
+| Bottom content panel
 |----------------------------------------------------------------------------*/
 
-.theia-SideBar.p-TabBar.theia-mod-top,
-.theia-SideBar.p-TabBar.theia-mod-bottom {
-  min-height: var(--theia-private-horizontal-tab-height);
+.p-TabBar.theia-app-bottom .p-TabBar-tab {
+  min-height: calc(var(--theia-private-horizontal-tab-height) + var(--theia-border-width));
 }
 
-.theia-SideBar.theia-mod-top .p-TabBar-tab,
-.theia-SideBar.theia-mod-bottom .p-TabBar-tab {
-  min-width: 35px;
-  line-height: var(--theia-private-horizontal-tab-height);
-  padding: 0px 8px;
-}
-
-.theia-SideBar.theia-mod-top .p-TabBar-content,
-.theia-SideBar.theia-mod-bottom .p-TabBar-content {
-  align-items: flex-end;
-  min-width: 0;
-  min-height: 0;
-}
-
-#theia-top-content-panel.theia-mod-collapsed,
-#theia-bottom-content-panel.theia-mod-collapsed {
-  max-height: var(--theia-private-horizontal-tab-height);
-}
-
-#theia-top-stack > .p-Widget, #theia-bottom-stack > .p-Widget {
+#theia-bottom-stack > .p-Widget {
   min-height: 150px;
 }
 
-#theia-top-stack {
-  border-bottom: var(--theia-border-width) solid var(--theia-border-color1);
+#theia-bottom-content-panel.theia-mod-collapsed {
+  max-height: var(--theia-private-horizontal-tab-height);
 }
 
 #theia-bottom-content-panel {
