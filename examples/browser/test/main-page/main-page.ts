@@ -25,11 +25,11 @@ export class MainPage {
     }
 
     rightSideBarExists(): boolean {
-        return this.driver.waitForExist('div.theia-SideBar.theia-mod-right');
+        return this.driver.waitForExist('div.p-TabBar.theia-app-right');
     }
 
     leftSideBarExists(): boolean {
-        return this.driver.waitForExist('div.theia-SideBar.theia-mod-left');
+        return this.driver.waitForExist('div.p-TabBar.theia-app-left');
     }
 
     statusBarExists(): boolean {
